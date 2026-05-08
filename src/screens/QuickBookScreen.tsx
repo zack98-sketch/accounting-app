@@ -6,17 +6,61 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
+  Alert,
 } from 'react-native';
-import { TransactionType } from '../types';
+import { useNavigation } from '@react-navigation/native';
+import { TransactionType, Category, Account } from '../types';
+import { TransactionService } from '../services/TransactionService';
+import { CategoryPicker } from '../components/CategoryPicker';
+import { AccountPicker } from '../components/AccountPicker';
 
 export const QuickBookScreen: React.FC = () => {
+  const navigation = useNavigation();
   const [type, setType] = useState<TransactionType>('expense');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [showAccountPicker, setShowAccountPicker] = useState(false);
 
   const handleSave = () => {
-    // TODO: 实现保存逻辑
-    console.log('Save transaction:', { type, amount, note });
+    // 验证输入
+    if (!amount || parseFloat(amount) <= 0) {
+      Alert.alert('提示', '请输入有效金额');
+      return;
+    }
+
+    if (!selectedCategory) {
+      Alert.alert('提示', '请选择分类');
+      return;
+    }
+
+    if (!selectedAccount) {
+      Alert.alert('提示', '请选择账户');
+      return;
+    }
+
+    try {
+      const transactionService = new TransactionService();
+      transactionService.createTransaction({
+        type,
+        amount: parseFloat(amount),
+        categoryId: selectedCategory.id,
+        accountId: selectedAccount.id,
+        date: new Date(),
+        note: note || undefined,
+      });
+
+      Alert.alert('成功', '记账成功', [
+        {
+          text: '确定',
+          onPress: () => navigation.goBack(),
+        },
+      ]);
+    } catch (error) {
+      Alert.alert('错误', (error as Error).message);
+    }
   };
 
   return (
@@ -62,16 +106,43 @@ export const QuickBookScreen: React.FC = () => {
       </View>
 
       {/* 分类选择 */}
-      <TouchableOpacity style={styles.categorySelector}>
+      <TouchableOpacity
+        style={styles.categorySelector}
+        onPress={() => setShowCategoryPicker(true)}
+      >
         <Text style={styles.selectorLabel}>分类</Text>
-        <Text style={styles.selectorValue}>请选择分类 {'>'}</Text>
+        <Text style={styles.selectorValue}>
+          {selectedCategory ? selectedCategory.name : '请选择分类'} {'>'}
+        </Text>
       </TouchableOpacity>
 
       {/* 账户选择 */}
-      <TouchableOpacity style={styles.categorySelector}>
+      <TouchableOpacity
+        style={styles.categorySelector}
+        onPress={() => setShowAccountPicker(true)}
+      >
         <Text style={styles.selectorLabel}>账户</Text>
-        <Text style={styles.selectorValue}>请选择账户 {'>'}</Text>
+        <Text style={styles.selectorValue}>
+          {selectedAccount ? selectedAccount.name : '请选择账户'} {'>'}
+        </Text>
       </TouchableOpacity>
+
+      {/* 分类选择器 */}
+      <CategoryPicker
+        type={type === 'transfer' ? 'expense' : type}
+        selectedCategoryId={selectedCategory?.id}
+        onSelect={setSelectedCategory}
+        visible={showCategoryPicker}
+        onClose={() => setShowCategoryPicker(false)}
+      />
+
+      {/* 账户选择器 */}
+      <AccountPicker
+        selectedAccountId={selectedAccount?.id}
+        onSelect={setSelectedAccount}
+        visible={showAccountPicker}
+        onClose={() => setShowAccountPicker(false)}
+      />
 
       {/* 备注 */}
       <View style={styles.noteSection}>
